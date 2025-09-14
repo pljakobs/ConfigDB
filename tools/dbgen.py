@@ -1280,17 +1280,76 @@ def generate_object(db: Database, object_prop: Property) -> CodeLines:
 
     def generate_enum_class(properties: list[Property]):
         enumlist = []
+        aliases = []
+        
         for prop in properties:
-            if prop.enum and prop.ctype_override:
-                tag_prefix = '' if prop.enum_type == 'String' else  'N'
-                enumlist += [
-                    '',
-                    f'enum class {prop.ctype_override}: uint8_t {{',
-                    [f'{tag_prefix}{make_identifier(str(x))},' for x in prop.enum],
-                    '};'
-                ]
+            if prop.enum:
+                # Check if enum contains only numeric values
+                is_numeric_only = all(isinstance(x, (int, float)) for x in prop.enum)
+                
+                # Use ctype_override if available, otherwise create enum class name
+                if prop.ctype_override:
+                    enum_class_name = prop.ctype_override
+                    # Legacy format for compatibility with existing code
+                    tag_prefix = '' if prop.enum_type == 'String' else 'N'
+                    enum_values = [f'{tag_prefix}{make_identifier(str(x))},' for x in prop.enum]
+                    
+                    enumlist += [
+                        '',
+                        f'enum class {enum_class_name}: uint8_t {{',
+                        enum_values,
+                        '};'
+                    ]
+                else:
+                    # New enhanced format with conversion functions
+                    enum_class_name = f"{prop.typename}Enum"
+                    
+                    # Generate enum values with proper identifiers
+                    enum_values = []
+                    for i, x in enumerate(prop.enum):
+                        if isinstance(x, (int, float)):
+                            # For numeric values, use generic naming
+                            identifier = f"Value{i}"
+                        else:
+                            # For string values, use make_identifier
+                            identifier = make_identifier(str(x), True)
+                        
+                        # Ensure identifier is not empty
+                        if not identifier:
+                            identifier = f"Value{i}"
+                            
+                        enum_values.append(f'{identifier} = {i},')
+                    
+                    # Generate enum class with conversion functions
+                    enumlist += [
+                        '',
+                        f'enum class {enum_class_name} : uint8_t {{',
+                        enum_values,
+                        '};',
+                        '',
+                        f'static constexpr {enum_class_name} to{prop.typename}Enum(uint8_t index) {{',
+                        [f'return static_cast<{enum_class_name}>(index);'],
+                        '}',
+                        '',
+                        f'static constexpr uint8_t from{prop.typename}Enum({enum_class_name} value) {{',
+                        [f'return static_cast<uint8_t>(value);'],
+                        '}',
+                    ]
+                    
+                    # Only generate type alias for meaningful enums (not numeric-only)
+                    if not is_numeric_only:
+                        aliases.append(f'using {prop.typename} = {enum_class_name};')
+        
+        # Add type aliases section if we have any
+        if aliases:
+            enumlist += [
+                '',
+                '// Type aliases for easier access',
+                *aliases
+            ]
+        
         return enumlist
-
+  
     if obj.is_object_array:
         item_lines = CodeLines() if obj.items.obj.ref else generate_object(db, obj.items)
         return CodeLines(
