@@ -151,8 +151,16 @@ void init()
 	spiffs_mount();
 #endif
 
+	WebInfo::Root(database).onCommit([](auto root) {
+		Serial << _F("COMMIT CALLBACK!") << endl << root.app << endl;
+		root.clearDirty();
+	});
+
 	FSTR::Stream source(sampleData);
 	database.importFromStream(ConfigDB::Json::format, source);
+
+	// System.queueCallback([](void*) { auto root = new WebInfo::Root(database); });
+	auto root = new WebInfo::Root(database);
 
 	// ConfigDB::Json::format.setPretty(true);
 
@@ -170,6 +178,9 @@ void init()
 	// Un-comment this line to test web client locking conflict behaviour
 	// auto dirtyLock = new BasicConfig::Root::OuterUpdater(database);
 
-	statTimer.initializeMs<5000>([]() { printHeap(); });
+	statTimer.initializeMs<5000>([]() {
+		printHeap();
+		printStoreStats(database, true);
+	});
 	statTimer.start();
 }
