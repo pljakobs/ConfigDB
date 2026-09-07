@@ -377,7 +377,7 @@ public:
 	 */
 	std::unique_ptr<ImportStream> createImportStream(const Format& format)
 	{
-		return format.createImportStream(store, *this);
+		return format.createImportStream(*this);
 	}
 
 	explicit operator bool() const
@@ -422,7 +422,7 @@ public:
 	 */
 	std::unique_ptr<ExportStream> createExportStream(const Format& format, const ExportOptions& options = {}) const
 	{
-		return format.createExportStream(store, *this, options);
+		return format.createExportStream(*this, options);
 	}
 
 	using OuterUpdater =
