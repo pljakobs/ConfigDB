@@ -93,7 +93,7 @@ bool WriteStream::startElement(const Element& element)
 	auto sel = strchr(element.key, '[');
 
 	if(database && element.level == 1) {
-		if(!sel && element.type == Element::Type::Object) {
+		if(!sel && element.isContainer()) {
 			return locateStoreOrRoot(element);
 		}
 		// Assume this is a property of the root store
